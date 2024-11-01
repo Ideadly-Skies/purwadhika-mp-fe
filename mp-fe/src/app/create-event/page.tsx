@@ -318,13 +318,21 @@ export default function CreateEventPage() {
                                     </div>
                                 </div>
 
-                                {/* Go Back Button */}
-                                <div className="mt-8">
+                                {/* Action Buttons */}
+                                <div className="mt-8 flex justify-between items-center">
+                                    {/* Go Back Button */}
                                     <button
                                         onClick={() => setIsSaved(false)}
                                         className="text-blue-500 font-semibold hover:text-blue-700"
                                     >
                                         Go Back
+                                    </button>
+
+                                    {/* Submit Now Button */}
+                                    <button
+                                        className="bg-orange-500 text-white font-semibold px-4 py-2 rounded-lg hover:bg-orange-500"
+                                    >
+                                        Submit Now
                                     </button>
                                 </div>
                             </section>
