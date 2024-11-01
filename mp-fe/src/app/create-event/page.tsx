@@ -1,30 +1,112 @@
 "use client"
 import React, { useState } from 'react';
+import instance from '@/utils/axiosinstance';
+import { useMutation, UseQueryResult } from "@tanstack/react-query";
+import { ToastContainer, toast } from 'react-toastify';
+
+// Formik
+import { Formik, Field, Form, ErrorMessage, useFormikContext } from 'formik';
+import * as Yup from 'yup';
 
 export default function CreateEventPage() {
-    const [title, setTitle] = useState('');
-    const [organizer, setOrganizer] = useState('Eventbrite Training 2');
-    const [type, setType] = useState('');
-    const [category, setCategory] = useState('');
-    const [tags, setTags] = useState<string[]>([]); // Define tags as an array of strings
-    const [tagInput, setTagInput] = useState('');
+    // const [title, setTitle] = useState('');
+    // const [type, setType] = useState('');
+    // const [category, setCategory] = useState('');
+    // const [price, setEventPrice] = useState('')
+    // const [capacity, setCapacity] = useState('')
+    // const [startDate, setStartDate] = useState('')
+    // const [startTime, setStartTime] = useState('')
+    // const [endDate, setEndDate] = useState('')
+    // const [endTime, setEndTime] = useState('')
+    // const [timezone, setTimezone] = useState('')
+    // const [language, setLanguage] = useState('')
+
+    // const [tags, setTags] = useState<string[]>([]); // Define tags as an array of strings
+    // const [tagInput, setTagInput] = useState('');
+    
+    const EventTypeButtons = () => {
+        const { values, setFieldValue } = useFormikContext<any>();
+        return (
+            <div className="flex space-x-3 mb-6">
+                <button
+                    type="button"
+                    onClick={() => setFieldValue('eventType', 'Single Event')}
+                    className={`py-2 px-4 rounded-lg ${
+                        values.eventType === 'Single Event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                >
+                    Single Event
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setFieldValue('eventType', 'Recurring Event')}
+                    className={`py-2 px-4 rounded-lg ${
+                        values.eventType === 'Recurring Event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}
+                >
+                    Recurring Event
+                </button>
+            </div>
+        );
+    };
+
+    // State to hold form values and initialize Formik
+    const initialValues = {
+        title: '',
+        type: '',
+        category: '',
+        eventPrice: '',
+        capacity: '',
+        tags: [],
+        tagInput: '',
+        venue: '',
+        eventType: 'Single Event',
+        eventStartDate: '',
+        eventStartTime: '',
+        eventEndDate: '',
+        eventEndTime: '',
+        displayStartTime: false,
+        displayEndTime: false,
+        timeZone: '',
+        eventPageLanguage: '',
+        locationType: 'Venue', // Add default for locationType
+    };
 
     // set isSaved to false
     const [isSaved, setIsSaved] = useState(false);
 
-    const [locationType, setLocationType] = useState('Venue');
-    const [eventType, setEventType] = useState('Single Event');
-    
     // event detail page
     const [summary, setSummary] = useState('');
 
-    const addTag = () => {
-        if (tagInput && tags.length < 25) {
-        setTags([...tags, tagInput]); // Now this will work without errors
-        setTagInput('');
-        }
-    };
-  
+    const validationSchema = Yup.object({
+        title: Yup.string().required('Event title is required').max(75, 'Title cannot exceed 75 characters'),
+        type: Yup.string().required('Please select an event type'),
+        category: Yup.string().required('Please select a category'),
+        eventPrice: Yup.number().required('Price is required').min(0, 'Price cannot be negative'),
+        capacity: Yup.number().required('Capacity is required').min(1, 'Capacity must be at least 1'),
+    });
+
+    // mutateCreateEvent
+    // const {mutate: mutateCreateEvent} = useMutation({
+    //     mutationFn: async(fd: any) => {
+    //         return await instance.post('/event/create-event', fd)
+    //     },
+
+    //     onSuccess: (res) => {
+    //         toast.success("Create event success", {
+    //             position: "top-center"
+    //         })
+    //         console.log(res);
+    //     },
+
+    //     onError: (err) => {
+    //         toast.error("create event failed", {
+    //             position: "top-center"
+    //         })
+    //         console.log(err);
+    //     }
+    // })
+
     return (
         <>
             {!isSaved ? (
@@ -33,214 +115,298 @@ export default function CreateEventPage() {
                         <h2 className="text-3xl font-semibold text-gray-800 mb-4">Basic Info</h2>
                         <p className="text-gray-600 mb-8">Name your event and tell event-goers why they should come. Add details that highlight what makes it unique.</p>
                         
-                        {/* Event Title */}
-                        <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="title">
-                            Event Title <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                            type="text"
-                            id="title"
-                            placeholder="Mixology Class"
-                            maxLength={75}
-                            value={title}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
-                        />
-                        <p className="text-right text-sm text-gray-500">{title.length}/75</p>
-                        </div>
-            
-                        {/* Organizer */}
-                        {/* <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-semibold mb-2">Organizer</label>
-                        <select
-                            value={organizer}
-                            onChange={(e) => setOrganizer(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                        <Formik
+                            initialValues = {initialValues}
+                            validationSchema = {validationSchema}
+                            onSubmit={(values) => {
+                                console.log(values)
+                                // setFormValues(values)
+                                setIsSaved(true);
+                            }}
                         >
-                            <option>Eventbrite Training 2</option>
-                            <option>Another Organizer</option>
-                        </select>
-                        <p className="text-sm text-gray-500 mt-1">This profile describes a unique organizer and shows all of the events on one page. <a href="#" className="text-blue-500 underline">View Organizer Info</a></p>
-                        </div> */}
-            
-                        {/* Type and Category */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                        <div>
-                            <label className="block text-gray-700 text-sm font-semibold mb-2">Type</label>
-                            <select
-                            value={type}
-                            onChange={(e) => setType(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
-                            >
-                            <option value="">Select Type</option>
-                            <option value="Conference">Conference</option>
-                            <option value="Seminar">Seminar</option>
-                            <option value="Workshop">Workshop</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-gray-700 text-sm font-semibold mb-2">Category</label>
-                            <select
-                            value={category}
-                            onChange={(e) => setCategory(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
-                            >
-                            <option value="">Select Category</option>
-                            <option value="Education">Education</option>
-                            <option value="Business">Business</option>
-                            <option value="Health">Health</option>
-                            </select>
-                        </div>
-                        </div>
-            
-                        {/* Tags */}
-                        <div className="mb-8">
-                        <label className="block text-gray-700 text-sm font-semibold mb-2">Tags</label>
-                        <p className="text-gray-500 mb-2">Improve discoverability of your event by adding tags relevant to the subject matter.</p>
-                        <div className="flex items-center mb-4">
-                            <input
-                            type="text"
-                            placeholder="Add search keywords to your event"
-                            value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
-                            />
-                            <button
-                            onClick={addTag}
-                            className="bg-gray-200 text-gray-700 ml-2 px-4 py-2 rounded-lg hover:bg-gray-300"
-                            >
-                            Add
-                            </button>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                            {tags.map((tag, index) => (
-                            <span key={index} className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm">{tag}</span>
-                            ))}
-                        </div>
-                        <p className="text-sm text-gray-500 mt-2">{tags.length}/25 tags</p>
-                        </div>
-                        
-                        {/* Location Section */}
-                        <div className="mb-12">
-                            <h3 className="text-2xl font-semibold text-gray-800 mb-4">Location</h3>
-                            <p className="text-gray-600 mb-6">Help people in the area discover your event and let attendees know where to show up.</p>
-                            <div className="flex space-x-3 mb-6">
-                                <button
-                                    onClick={() => setLocationType('Venue')}
-                                    className={`py-2 px-4 rounded-lg ${locationType === 'Venue' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                >
-                                    Venue
-                                </button>
-                                <button
-                                    onClick={() => setLocationType('Online event')}
-                                    className={`py-2 px-4 rounded-lg ${locationType === 'Online event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                >
-                                    Online event
-                                </button>
-                                <button
-                                    onClick={() => setLocationType('To be announced')}
-                                    className={`py-2 px-4 rounded-lg ${locationType === 'To be announced' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                >
-                                    To be announced
-                                </button>
-                            </div>
-                            {locationType === 'Venue' && (
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        placeholder="Search for a venue or address"
-                                        className="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:border-blue-500"
-                                    />
-                                </div>
-                            )}
-                        </div>
-            
-                        {/* Date and Time Section */}
-                        <div className="mb-12">
-                            <h3 className="text-2xl font-semibold text-gray-800 mb-4">Date and Time</h3>
-                            <p className="text-gray-600 mb-6">Tell event-goers when your event starts and ends so they can make plans to attend.</p>
-                            
-                            {/* Event Type Selection */}
-                            <div className="flex space-x-3 mb-6">
-                                <button
-                                    onClick={() => setEventType('Single Event')}
-                                    className={`py-2 px-4 rounded-lg ${eventType === 'Single Event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                >
-                                    Single Event
-                                </button>
-                                <button
-                                    onClick={() => setEventType('Recurring Event')}
-                                    className={`py-2 px-4 rounded-lg ${eventType === 'Recurring Event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
-                                >
-                                    Recurring Event
-                                </button>
-                            </div>
-                            
-                            {/* Conditionally Render Date and Time Details */}
-                            {eventType === 'Single Event' && (
-                                <>
-                                    <p className="text-gray-500 mb-6">Single event happens once and can last multiple days.</p>
-                                    {/* Event Date and Time Inputs */}
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                        <div>
-                                            <label className="block text-gray-700 font-medium mb-2">Event Starts</label>
-                                            <div className="flex space-x-2">
-                                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2" />
-                                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2" />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-gray-700 font-medium mb-2">Event Ends</label>
-                                            <div className="flex space-x-2">
-                                                <input type="date" className="w-full border border-gray-300 rounded-lg p-2" />
-                                                <input type="time" className="w-full border border-gray-300 rounded-lg p-2" />
-                                            </div>
-                                        </div>
-                                    </div>
-                                    
-                                    {/* Display Time Checkboxes */}
-                                    <div className="flex items-center space-x-4 mb-6">
-                                        <label className="flex items-center text-gray-700">
-                                            <input type="checkbox" className="mr-2" /> Display start time
+                            {({ values, setFieldValue }) => (
+                                <Form>
+                                    {/* Event Title */}
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="title">
+                                            Event Title <span className="text-red-500">*</span>
                                         </label>
-                                        <label className="flex items-center text-gray-700">
-                                            <input type="checkbox" className="mr-2" /> Display end time
-                                        </label>
+                                        <Field
+                                            name="title"
+                                            id="title"
+                                            type="text"
+                                            placeholder="Mixology Class"
+                                            maxLength={75}
+                                            // value={title}
+                                            // onChange={(e: any) => setTitle(e.target.value)}
+                                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                        />
+                                        <ErrorMessage name="title" component="p" className="text-red-500 text-sm" />
+                                        <p className="text-right text-sm text-gray-500">{values.title.length}/75</p>
                                     </div>
-                                    
-                                    {/* Time Zone Selection */}
-                                    <div className="mb-4">
-                                        <label className="block text-gray-700 font-medium mb-2">Time Zone</label>
-                                        <select className="w-full border border-gray-300 rounded-lg p-2">
-                                            <option>GMT-0400 United States (New York)</option>
-                                            <option>GMT+0100 United Kingdom (London)</option>
-                                            <option>GMT+0900 Japan (Tokyo)</option>
-                                            {/* Add more time zones as needed */}
-                                        </select>
-                                    </div>
-                                    
-                                    {/* Event Page Language Selection */}
-                                    <div className="mb-4">
-                                        <label className="block text-gray-700 font-medium mb-2">Event Page Language</label>
-                                        <select className="w-full border border-gray-300 rounded-lg p-2">
-                                            <option>English (US)</option>
-                                            <option>Spanish</option>
-                                            <option>French</option>
-                                            {/* Add more languages as needed */}
-                                        </select>
-                                    </div>
-                                </>
-                            )}
-                        </div>
                     
-                        {/* Buttons */}
-                        <div className="flex justify-between">
-                            <button className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300">Discard</button>
-                            <button className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600" onClick={() => setIsSaved(true)}>Save & Continue</button>
-                        </div>
+                                    {/* Type and Category */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div>
+                                            <label className="block text-gray-700 text-sm font-semibold mb-2">Type</label>
+                                            <Field
+                                                as="select"
+                                                name="type"
+                                                // value={type}
+                                                // onChange={(e: any) => {
+                                                //     setType(e.target.value)
+                                                // }}
+                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            >
+                                                <option value="">Select Type</option>
+                                                <option value="Conference">Conference</option>
+                                                <option value="Seminar">Seminar</option>
+                                                <option value="Workshop">Workshop</option>
+                                            </Field>
+                                            <ErrorMessage name="type" component="p" className="text-red-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-700 text-sm font-semibold mb-2">Category</label>
+                                            <Field
+                                                as="select"
+                                                name="category"
+                                                // value={category}
+                                                // onChange={(e: any) => setCategory(e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            >
+                                                <option value="">Select Category</option>
+                                                <option value="Education">Education</option>
+                                                <option value="Business">Business</option>
+                                                <option value="Health">Health</option>
+                                            </Field>
+                                            <ErrorMessage name="category" component="p" className="text-red-500 text-sm" />
+                                        </div>
+                                    </div>
+
+                                    {/* Event Price and Capacity */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        <div>
+                                            <label className="block text-gray-700 text-sm font-semibold mb-2">Event Price ($)</label>
+                                            <Field
+                                                name="eventPrice"
+                                                type="number"
+                                                min={0}
+                                                placeholder="Enter price"
+                                                // value={price}
+                                                // onChange={(e: any) => setEventPrice(e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            />
+                                            <ErrorMessage name="eventPrice" component="p" className="text-red-500 text-sm" />
+                                        </div>
+                                        <div>
+                                            <label className="block text-gray-700 text-sm font-semibold mb-2">Capacity</label>
+                                            <Field
+                                                name="capacity"
+                                                type="number"
+                                                min={1}
+                                                placeholder="Enter capacity"
+                                                // value={capacity}
+                                                // onChange={(e: any) => setCapacity(e.target.value)}
+                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            />
+                                            <ErrorMessage name="capacity" component="p" className="text-red-500 text-sm" />
+                                        </div>
+                                    </div>
+
+                                    {/* Tags Section */}
+                                    <div className="mb-8">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-2">Tags</label>
+                                        <p className="text-gray-500 mb-2">Improve discoverability of your event by adding tags relevant to the subject matter.</p>
+                                        <div className="flex items-center mb-4">
+                                            <Field
+                                                name="tagInput"
+                                                placeholder="Add search keywords to your event"
+                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const { tagInput, tags } = values;
+                                                    if (tagInput && tags.length < 25) {
+                                                        setFieldValue("tags", [...tags, tagInput]);
+                                                        setFieldValue("tagInput", ''); // Clear input
+                                                    }
+                                                }}
+                                                className="bg-gray-200 text-gray-700 ml-2 px-4 py-2 rounded-lg hover:bg-gray-300"
+                                            >
+                                                Add
+                                            </button>
+                                        </div>
+                                        <ErrorMessage name="tags" component="p" className="text-red-500 text-sm" />
+                                        <div className="flex flex-wrap gap-2">
+                                            {values.tags.map((tag: any, index: any) => (
+                                                <span key={index} className="bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm">
+                                                    {tag}
+                                                </span>
+                                            ))}
+                                        </div>
+                                        <p className="text-sm text-gray-500 mt-2">{values.tags.length}/25 tags</p>
+                                    </div>
+
+                                    {/* Location Section */}
+                                    <div className="mb-12">
+                                        <h3 className="text-2xl font-semibold text-gray-800 mb-4">Location</h3>
+                                        <p className="text-gray-600 mb-6">Help people in the area discover your event and let attendees know where to show up.</p>
+                                        <div className="flex space-x-3 mb-6">
+                                            <button
+                                                type="button"
+                                                onClick={() => setFieldValue('locationType', 'Venue')}
+                                                className={`py-2 px-4 rounded-lg ${values.locationType === 'Venue' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                                            >
+                                                Venue
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFieldValue('locationType', 'Online event')}
+                                                className={`py-2 px-4 rounded-lg ${values.locationType === 'Online event' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                                            >
+                                                Online event
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setFieldValue('locationType', 'To be announced')}
+                                                className={`py-2 px-4 rounded-lg ${values.locationType === 'To be announced' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-700'}`}
+                                            >
+                                                To be announced
+                                            </button>
+                                        </div>
+                                        {values.locationType === 'Venue' && (
+                                            <div className="relative">
+                                                <Field
+                                                   name="venue"
+                                                   type="text"
+                                                   placeholder="Search for a venue or address"
+                                                   className="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:border-blue-500" 
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    {/* Event Type Selection */}
+                                    <EventTypeButtons />
+
+                                    {/* Conditionally Render Date and Time Details */}
+                                    {values.eventType === 'Single Event' && (
+                                        <>
+                                            <p className="text-gray-500 mb-6">Single event happens once and can last multiple days.</p>
+
+                                            {/* Event Date and Time Inputs */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                                <div>
+                                                    <label className="block text-gray-700 font-medium mb-2">Event Starts</label>
+                                                    <div className="flex space-x-2">
+                                                        <Field
+                                                            type="date"
+                                                            name="eventStartDate"
+                                                            // value={startDate}
+                                                            // onChange={(e: any) => {setStartDate(e)}}
+                                                            className="w-full border border-gray-300 rounded-lg p-2"
+                                                        />
+                                                        <Field
+                                                            type="time"
+                                                            name="eventStartTime"
+                                                            // value={startTime}
+                                                            // onChange={(e: any) => {setStartTime(e)}}
+                                                            className="w-full border border-gray-300 rounded-lg p-2"
+                                                        />
+                                                    </div>
+                                                    <ErrorMessage name="eventStartDate" component="p" className="text-red-500 text-sm" />
+                                                    <ErrorMessage name="eventStartTime" component="p" className="text-red-500 text-sm" />
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-gray-700 font-medium mb-2">Event Ends</label>
+                                                    <div className="flex space-x-2">
+                                                        <Field
+                                                            type="date"
+                                                            name="eventEndDate"
+                                                            // value={endDate}
+                                                            // onChange={(e: any) => {setEndDate(e)}}
+                                                            className="w-full border border-gray-300 rounded-lg p-2"
+                                                        />
+                                                        <Field
+                                                            type="time"
+                                                            name="eventEndTime"
+                                                            // value={endTime}
+                                                            // onChange={(e: any) => {setEndTime(e)}}
+                                                            className="w-full border border-gray-300 rounded-lg p-2"
+                                                        />
+                                                    </div>
+                                                    <ErrorMessage name="eventEndDate" component="p" className="text-red-500 text-sm" />
+                                                    <ErrorMessage name="eventEndTime" component="p" className="text-red-500 text-sm" />
+                                                </div>
+                                            </div>
+
+                                            {/* Display Time Checkboxes */}
+                                            <div className="flex items-center space-x-4 mb-6">
+                                                <label className="flex items-center text-gray-700">
+                                                    <Field type="checkbox" name="displayStartTime" className="mr-2" />
+                                                    Display start time
+                                                </label>
+                                                <label className="flex items-center text-gray-700">
+                                                    <Field type="checkbox" name="displayEndTime" className="mr-2" />
+                                                    Display end time
+                                                </label>
+                                            </div>
+
+                                            {/* Time Zone Selection */}
+                                            <div className="mb-4">
+                                                <label className="block text-gray-700 font-medium mb-2">Time Zone</label>
+                                                <Field
+                                                    as="select"
+                                                    name="timeZone"
+                                                    // value={timezone}
+                                                    // onChange={(e: any) => {setTimezone(e)}}
+                                                    className="w-full border border-gray-300 rounded-lg p-2"
+                                                >
+                                                    <option value="">Select Time Zone</option>
+                                                    <option value="GMT-0400">GMT-0400 United States (New York)</option>
+                                                    <option value="GMT+0100">GMT+0100 United Kingdom (London)</option>
+                                                    <option value="GMT+0900">GMT+0900 Japan (Tokyo)</option>
+                                                </Field>
+                                                <ErrorMessage name="timeZone" component="p" className="text-red-500 text-sm" />
+                                            </div>
+
+                                            {/* Event Page Language Selection */}
+                                            <div className="mb-4">
+                                                <label className="block text-gray-700 font-medium mb-2">Event Page Language</label>
+                                                <Field
+                                                    as="select"
+                                                    name="eventPageLanguage"
+                                                    // value={language}
+                                                    // onChange={(e: any) => {setLanguage(e)}}
+                                                    className="w-full border border-gray-300 rounded-lg p-2"
+                                                >
+                                                    <option value="">Select Language</option>
+                                                    <option value="English">English (US)</option>
+                                                    <option value="Spanish">Spanish</option>
+                                                    <option value="French">French</option>
+                                                </Field>
+                                                <ErrorMessage name="eventPageLanguage" component="p" className="text-red-500 text-sm" />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {/* Buttons */}
+                                    <div className="flex justify-between">
+                                        <button type="button" className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300">
+                                            Discard
+                                        </button>
+                                        <button type="submit" className="bg-orange-500 text-white px-4 py-2 rounded-lg hover:bg-orange-600">
+                                            Save & Continue
+                                        </button>
+                                    </div>
+                                </Form>
+                            )}
+                        </Formik>
                     </div>
                 </div>
+
             ) : 
             
             (
@@ -293,8 +459,8 @@ export default function CreateEventPage() {
                                         className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500 resize-none"
                                         placeholder="Write a short event summary to get attendees excited..."
                                         maxLength={140}
-                                        value={summary}
-                                        onChange={(e) => setSummary(e.target.value)}
+                                        // value={summary}
+                                        // onChange={(e) => setSummary(e.target.value)}
                                         rows={3}
                                     />
                                     <p className="text-right text-gray-500 text-sm mt-1">{summary.length}/140</p>
