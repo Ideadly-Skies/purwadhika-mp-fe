@@ -147,25 +147,25 @@ export default function CreateEventPage() {
     };
 
     // mutateCreateEvent
-    // const {mutate: mutateCreateEvent} = useMutation({
-    //     mutationFn: async(fd: any) => {
-    //         return await instance.post('/event/create-event', fd)
-    //     },
+    const {mutate: mutateCreateEvent} = useMutation({
+        mutationFn: async(fd: any) => {
+            return await instance.post('/event/create-event', fd)
+        },
 
-    //     onSuccess: (res) => {
-    //         toast.success("Create event success", {
-    //             position: "top-center"
-    //         })
-    //         console.log(res);
-    //     },
+        onSuccess: (res) => {
+            toast.success("Create event success", {
+                position: "top-center"
+            })
+            console.log(res);
+        },
 
-    //     onError: (err) => {
-    //         toast.error("create event failed", {
-    //             position: "top-center"
-    //         })
-    //         console.log(err);
-    //     }
-    // })
+        onError: (err) => {
+            toast.error("create event failed", {
+                position: "top-center"
+            })
+            console.log(err);
+        }
+    })
 
     // List of fields with default values that shouldn't be considered in the "empty" check
     const fieldsWithDefaultValues = ['eventType', 'locationType'];
@@ -507,13 +507,34 @@ export default function CreateEventPage() {
                     initialValues={initialValues2}
                     // merge the form values with the previous form values
                     onSubmit={(values) => {
-                        setFormValues(({
-                            ...formValues,
-                            ...values,
-                        }));
+                        // Merge the previous form values with the current form values
+                        const allValues: any = {
+                            ...formValues,  // Existing values from the first form
+                            ...values,      // New values from the current form
+                        };
 
-                        console.log('form values:', formValues);
-                        console.log('Form submitted:', values);
+                        console.log(allValues);
+
+                        // Update the formValues state with the merged data
+                        setFormValues(allValues);
+
+                        // Create a new FormData object
+                        const formData = new FormData();
+
+                        // Append each field in the merged form values to the FormData
+                        for (const key in allValues) {
+                            if (allValues[key] instanceof File) {
+                                // If the value is a File (for image uploads)
+                                formData.append(key, allValues[key]);
+                            } else if (Array.isArray(allValues[key])) {
+                                // If the value is an array (e.g., tags), append each item
+                                allValues[key].forEach((item) => formData.append(`${key}[]`, item));
+                            } else {
+                                // Otherwise, append as a regular value
+                                formData.append(key, allValues[key]);
+                            }
+                        }
+                        mutateCreateEvent(formData);
                         // setIsSaved(true);
                     }}
                     // validationSchema={validationSchema2}
@@ -555,7 +576,13 @@ export default function CreateEventPage() {
                                                     type="file"
                                                     className="hidden"
                                                     accept="image/*"
-                                                    onChange={(e) => handleImageUpload(e, setFieldValue)}
+                                                    onChange={(e: any) => {
+                                                        const file = e.target.files[0];
+                                                        if (file) {
+                                                            setFieldValue('mainImageUrl', URL.createObjectURL(file));
+                                                            setFieldValue('mainImage', file);  // Store the file for FormData
+                                                        }
+                                                    }}
                                                 />
                                             </label>
                                         </div>

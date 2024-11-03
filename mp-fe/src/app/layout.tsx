@@ -4,6 +4,9 @@ import "./globals.css";
 
 import Navbar from "@/components/navbar/page";
 import Footer from "@/components/footer/page";
+import ReduxProvider from "@/providers/ReduxProvider";
+import TanstackProvider from "@/providers/TanstackProvider";
+import AuthProvider from "@/providers/AuthProvider";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -31,9 +34,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar/>
-        {children}
-        <Footer/>
+        <ReduxProvider>
+          <TanstackProvider>
+            <AuthProvider>
+                <Navbar/>
+                {children}
+                <Footer/>
+            </AuthProvider>
+          </TanstackProvider>
+        </ReduxProvider>
       </body>
     </html>
   );

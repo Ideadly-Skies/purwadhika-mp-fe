@@ -2,7 +2,7 @@ import axios from 'axios'
 import authStore from '@/zustand/authStore';
 
 const instance = axios.create({
-    baseURL: 'http://localhost:4700/api'
+    baseURL: 'http://localhost:4700/api',
 })
 
 // middleware versi frontend
