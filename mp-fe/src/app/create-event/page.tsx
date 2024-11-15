@@ -2,7 +2,8 @@
 import React, { useState } from 'react';
 import instance from '@/utils/axiosinstance';
 import { useMutation, UseQueryResult } from "@tanstack/react-query";
-import { ToastContainer, toast } from 'react-toastify';
+import { toast } from 'react-toastify';
+import { useRouter } from 'next/navigation';
 
 // Formik
 import { Formik, Field, Form, ErrorMessage, useFormikContext } from 'formik';
@@ -10,21 +11,8 @@ import * as Yup from 'yup';
 
 // create event page
 export default function CreateEventPage() {
-    // const [title, setTitle] = useState('');
-    // const [type, setType] = useState('');
-    // const [category, setCategory] = useState('');
-    // const [price, setEventPrice] = useState('')
-    // const [capacity, setCapacity] = useState('')
-    // const [startDate, setStartDate] = useState('')
-    // const [startTime, setStartTime] = useState('')
-    // const [endDate, setEndDate] = useState('')
-    // const [endTime, setEndTime] = useState('')
-    // const [timezone, setTimezone] = useState('')
-    // const [language, setLanguage] = useState('')
+    const router = useRouter();
 
-    // const [tags, setTags] = useState<string[]>([]); // Define tags as an array of strings
-    // const [tagInput, setTagInput] = useState('');
-    
     const EventTypeButtons = () => {
         const { values, setFieldValue } = useFormikContext<any>();
         return (
@@ -53,14 +41,15 @@ export default function CreateEventPage() {
 
     // State to hold form values and initialize Formik
     const initialValues = {
-        title: '',
+        name: '',
         type: '',
         category: '',
         eventPrice: '',
         capacity: '',
         tags: [],
         tagInput: '',
-        venue: '',
+        location: '',
+        locationName: '',
         eventType: 'Single Event',
         eventStartDate: '',
         eventStartTime: '',
@@ -87,18 +76,27 @@ export default function CreateEventPage() {
     const [showRefillPrompt, setShowRefillPrompt] = useState(false);
 
     const validationSchema = Yup.object({
-        title: Yup.string().required('Event title is required').max(75, 'Title cannot exceed 75 characters'),
+        name: Yup.string().required('Event name is required').max(75, 'event name cannot exceed 75 characters'),
         type: Yup.string().required('Please select an event type'),
         category: Yup.string().required('Please select a category'),
-        eventPrice: Yup.number().required('Price is required').min(0, 'Price cannot be negative'),
+        eventPrice: Yup.string().required('Event price is required').test(
+            'is-decimal',
+            'Price must be a decimal number with a dot (e.g., 10.50)',
+            value => /^[0-9]+(\.[0-9]{1,2})?$/.test(value) // Regex to check for decimal format with dot
+        ), 
         capacity: Yup.number().required('Capacity is required').min(1, 'Capacity must be at least 1'),
         tags: Yup.array()
             .of(Yup.string())
             .min(1, 'Please add at least one tag') // Require at least one tag
             .required('Tags are required'), // Make sure tags array itself is required
-        venue: Yup.string().when('locationType', {
+        location: Yup.string().when('type', {
             is: 'Venue',
-            then: schema => schema.required('Venue is required for this location type'),
+            then: schema => schema.required('location is required for this location type'),
+        }),
+        locationName: Yup.string().when('type', {
+            is: 'Venue',
+            then: schema => schema.required('Location name is required when selecting a location'),
+            otherwise: schema => schema.notRequired(),
         }),
         eventStartDate: Yup.date()
         .required('Start date is required')
@@ -125,27 +123,6 @@ export default function CreateEventPage() {
         eventPageLanguage: Yup.string().required('Please select an event page language'),
     });
 
-    // const validationSchema2 = Yup.object().shape({
-    //     mainImageUrl: Yup.string()
-    //         .url('Please provide a valid URL for the image')
-    //         .required('Main event image URL is required'),
-    //     summary: Yup.string()
-    //         .max(140, 'Summary cannot exceed 140 characters')
-    //         .required('Summary is required'),
-    //     detailedDescription: Yup.string()
-    //         .required('Detailed description is required'),
-    // });
-    
-    const handleImageUpload = (event: any, setFieldValue: any) => {
-        const file = event.currentTarget.files[0];
-        console.log(file);
-        if (file) {
-            const url = URL.createObjectURL(file);
-            setFieldValue('mainImage', file);
-            setFieldValue('mainImageUrl', url);
-        }
-    };
-
     // mutateCreateEvent
     const {mutate: mutateCreateEvent} = useMutation({
         mutationFn: async(fd: any) => {
@@ -156,6 +133,7 @@ export default function CreateEventPage() {
             toast.success("Create event success", {
                 position: "top-center"
             })
+            router.push('/');
             console.log(res);
         },
 
@@ -217,23 +195,21 @@ export default function CreateEventPage() {
                         >
                             {({ values, setFieldValue }) => (
                                 <Form>
-                                    {/* Event Title */}
+                                    {/* Event Name */}
                                     <div className="mb-6">
-                                        <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="title">
-                                            Event Title <span className="text-red-500">*</span>
+                                        <label className="block text-gray-700 text-sm font-semibold mb-2" htmlFor="name">
+                                            Event Name <span className="text-red-500">*</span>
                                         </label>
                                         <Field
-                                            name="title"
-                                            id="title"
+                                            name="name"
+                                            id="name"
                                             type="text"
                                             placeholder="Mixology Class"
                                             maxLength={75}
-                                            // value={title}
-                                            // onChange={(e: any) => setTitle(e.target.value)}
                                             className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
                                         />
-                                        <ErrorMessage name="title" component="p" className="text-red-500 text-sm" />
-                                        <p className="text-right text-sm text-gray-500">{values.title.length}/75</p>
+                                        <ErrorMessage name="name" component="p" className="text-red-500 text-sm" />
+                                        <p className="text-right text-sm text-gray-500">{values.name.length}/75</p>
                                     </div>
                     
                                     {/* Type and Category */}
@@ -279,26 +255,23 @@ export default function CreateEventPage() {
                                         <div>
                                             <label className="block text-gray-700 text-sm font-semibold mb-2">Event Price ($)</label>
                                             <Field
-                                                name="eventPrice"
-                                                type="number"
-                                                min={0}
-                                                placeholder="Enter price"
-                                                // value={price}
-                                                // onChange={(e: any) => setEventPrice(e.target.value)}
-                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            name="eventPrice"
+                                            type="number"
+                                            min="0"
+                                            step="0.01" // Allows inputting decimal values
+                                            placeholder="Enter price"
+                                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
                                             />
                                             <ErrorMessage name="eventPrice" component="p" className="text-red-500 text-sm" />
                                         </div>
                                         <div>
                                             <label className="block text-gray-700 text-sm font-semibold mb-2">Capacity</label>
                                             <Field
-                                                name="capacity"
-                                                type="number"
-                                                min={1}
-                                                placeholder="Enter capacity"
-                                                // value={capacity}
-                                                // onChange={(e: any) => setCapacity(e.target.value)}
-                                                className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
+                                            name="capacity"
+                                            type="number"
+                                            min="1"
+                                            placeholder="Enter capacity"
+                                            className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500"
                                             />
                                             <ErrorMessage name="capacity" component="p" className="text-red-500 text-sm" />
                                         </div>
@@ -367,15 +340,26 @@ export default function CreateEventPage() {
                                             </button>
                                         </div>
                                         
-                                        {/* Render venue field unconditionally but hide with CSS */}
+                                        {/* Render location field unconditionally but hide with CSS */}
                                         <div className={`relative ${values.locationType !== 'Venue' ? 'hidden' : ''}`}>
                                             <Field
-                                                name="venue"
+                                                name="location"
                                                 type="text"
-                                                placeholder="Search for a venue or address"
+                                                placeholder="Search for a location or address"
                                                 className="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:border-blue-500"
                                             />
-                                            <ErrorMessage name="venue" component="p" className="text-red-500 text-sm" />
+                                            <ErrorMessage name="location" component="p" className="text-red-500 text-sm" />
+                                        </div>
+
+                                        {/* Location Name field, visible only when 'Venue' is selected */}
+                                        <div className={`relative mt-4 ${values.locationType !== 'Venue' ? 'hidden' : ''}`}>
+                                            <Field
+                                                name="locationName"
+                                                type="text"
+                                                placeholder="Enter location name"
+                                                className="w-full border border-gray-300 rounded-lg p-4 focus:outline-none focus:border-blue-500"
+                                            />
+                                            <ErrorMessage name="locationName" component="p" className="text-red-500 text-sm" />
                                         </div>
                                     </div>
                                     
@@ -435,7 +419,7 @@ export default function CreateEventPage() {
                                             </div>
 
                                             {/* Display Time Checkboxes */}
-                                            <div className="flex items-center space-x-4 mb-6">
+                                            {/* <div className="flex items-center space-x-4 mb-6">
                                                 <label className="flex items-center text-gray-700">
                                                     <Field type="checkbox" name="displayStartTime" className="mr-2" />
                                                     Display start time
@@ -444,7 +428,7 @@ export default function CreateEventPage() {
                                                     <Field type="checkbox" name="displayEndTime" className="mr-2" />
                                                     Display end time
                                                 </label>
-                                            </div>
+                                            </div> */}
 
                                             {/* Time Zone Selection */}
                                             <div className="mb-4">
@@ -606,11 +590,11 @@ export default function CreateEventPage() {
                                                 name="summary"
                                                 className="w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:border-blue-500 resize-none"
                                                 placeholder="Write a short event summary to get attendees excited..."
-                                                maxLength={140}
+                                                maxLength={500}
                                                 rows={3}
                                             />
                                             <ErrorMessage name="summary" component="p" className="text-red-500 text-sm" />
-                                            <p className="text-right text-gray-500 text-sm mt-1">{values.summary.length}/140</p>
+                                            <p className="text-right text-gray-500 text-sm mt-1">{values.summary.length}/500</p>
                                         </div>
         
                                         {/* Detailed Description Input */}
