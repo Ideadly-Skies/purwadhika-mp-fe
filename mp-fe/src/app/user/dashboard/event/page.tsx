@@ -39,8 +39,8 @@ const Events: React.FC = () => {
 
   console.log("events invoked from review page",events)
 
-  const currentEvents = events.filter((event: any) => new Date(event.endDate) >= currentDate);
-  const pastEvents = events.filter((event: any) => new Date(event.endDate) < currentDate);
+  const currentEvents = (events || []).filter((event: any) => new Date(event.endDate) >= currentDate);
+  const pastEvents = (events || []).filter((event: any) => new Date(event.endDate) < currentDate);
 
   const renderTableRows = (eventList: Event[], isPast: boolean) => {
     return eventList.map((event, index) => (

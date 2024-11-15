@@ -35,7 +35,8 @@ function EventCard({ id, url, name, startDate, endDate, location, isPaid, catego
         </p>
         <p className="text-sm text-gray-600">{location}</p>
         <p className="text-sm font-medium mt-2">{isPaid ? "Paid" : "Free"}</p>
-        <p className="text-xs text-gray-500 mt-1">{category.name} event!</p>
+        <p className="text-xs text-gray-500 mt-1">{category?.name ? `${category.name} event!` : "Uncategorized event!"}
+        </p>
       </div>
     </div>
   );

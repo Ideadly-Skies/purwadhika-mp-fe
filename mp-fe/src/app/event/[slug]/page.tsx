@@ -121,10 +121,63 @@ export default function EventPage() {
       try {
         await loadSnapScript(midtransClientKey as string)
 
-        mutateCreateTransaction({
+        const transactionData = {
           eventId: id,
-          totalPrice: Math.round(event.price * regularTicketCount),
-        }); 
+          totalPrice: Math.round(event.price * regularTicketCount)
+        }
+
+        // create the transaction and retrieve the transaction token and redirect URL
+        const {data} = await instance.post("/transaction/create-transaction", transactionData)
+        const {token, redirect_url, orderId} = data;
+        console.log("data", data);
+        
+        // window snap to display the midtrans
+        if (window.snap) {
+          window.snap.pay(token, {
+            onSuccess: async function (result) {
+              alert("Payment successful!");
+  
+              // Post paid transaction to the backend
+              await instance.post("/transaction/update-transaction-status", {
+                orderId: result.order_id,
+                status: "paid",
+              });
+  
+              console.log("Payment success:", result);
+            },
+            onPending: async function (result) {
+                // Post pending transaction to the backend
+                await instance.post("/transaction/update-transaction-status", {
+                  orderId: result.order_id,
+                  status: "pending",
+                });            
+
+              alert("Waiting for your payment!");
+              console.log("Payment pending:", result);
+            },
+            onError: async function (result) {
+              // Post paid transaction to the backend
+              await instance.post("/transaction/update-transaction-status", {
+                orderId: result.order_id,
+                status: "failed",
+              }); 
+              alert("Payment failed!");
+              console.error("Payment failed:", result);
+            },
+            onClose: async function () { 
+              alert("You closed the popup without finishing the payment.");
+              
+              // Post pending transaction to the backend
+              await instance.post("/transaction/update-transaction-status", {
+                orderId: orderId,
+                status: "failed",
+              }); 
+            },
+          });
+        } else {
+          console.warn("Snap is not available. Redirecting to the payment page...");
+          window.location.href = redirect_url; // Redirect to Midtrans payment page
+        }         
       } catch (error) {
         console.error(error)
         toast.error("Payment system is not ready. Please try again.", { position: "top-center" });
@@ -136,50 +189,50 @@ export default function EventPage() {
   }
 
   // Define the mutation
-  const { mutate: mutateCreateTransaction } = useMutation({
-    mutationFn: async (data: { eventId: string; totalPrice: number }) => {
-      // Send request to create transaction
-      return await instance.post('/transaction/create-transaction', data);
-    },
+  // const { mutate: mutateCreateTransaction } = useMutation({
+  //   mutationFn: async (data: { eventId: string; totalPrice: number }) => {
+  //     // Send request to create transaction
+  //     return await instance.post('/transaction/create-transaction', data);
+  //   },
 
-    onSuccess: (res) => {
-      console.log(res.data)
-      const transactionToken = res.data.token; // Extract transaction token from response
-      const redirectUrl = res.data.redirect_url; // Extract redirect URL from response
+  //   onSuccess: (res) => {
+  //     console.log(res.data)
+  //     const transactionToken = res.data.token; // Extract transaction token from response
+  //     const redirectUrl = res.data.redirect_url; // Extract redirect URL from response
 
-      console.log(transactionToken)
-      console.log(redirectUrl)
+  //     console.log(transactionToken)
+  //     console.log(redirectUrl)
 
-      // Handle payment using Snap popup or redirect URL
-      if (window.snap) {
-        window.snap.pay(transactionToken, {
-          onSuccess: function (result) {
-            alert("Payment successful!");
-            console.log("Payment success:", result);
-          },
-          onPending: function (result) {
-            alert("Waiting for your payment!");
-            console.log("Payment pending:", result);
-          },
-          onError: function (result) {
-            alert("Payment failed!");
-            console.error("Payment failed:", result);
-          },
-          onClose: function () {
-            alert("You closed the popup without finishing the payment.");
-          },
-        });
-      } else {
-        console.warn("Snap is not available. Redirecting to the payment page...");
-        // window.location.href = redirectUrl 
-      }
-    },
+  //     // Handle payment using Snap popup or redirect URL
+  //     if (window.snap) {
+  //       window.snap.pay(transactionToken, {
+  //         onSuccess: function (result) {
+  //           alert("Payment successful!");
+  //           console.log("Payment success:", result);
+  //         },
+  //         onPending: function (result) {
+  //           alert("Waiting for your payment!");
+  //           console.log("Payment pending:", result);
+  //         },
+  //         onError: function (result) {
+  //           alert("Payment failed!");
+  //           console.error("Payment failed:", result);
+  //         },
+  //         onClose: function () {
+  //           alert("You closed the popup without finishing the payment.");
+  //         },
+  //       });
+  //     } else {
+  //       console.warn("Snap is not available. Redirecting to the payment page...");
+  //       // window.location.href = redirectUrl 
+  //     }
+  //   },
   
-    onError: (error) => {
-      console.error("Transaction creation failed:", error);
-      toast.error("Transaction creation failed", { position: "top-center" });
-    },
-  });
+  //   onError: (error) => {
+  //     console.error("Transaction creation failed:", error);
+  //     toast.error("Transaction creation failed", { position: "top-center" });
+  //   },
+  // });
 
   // if there are no event being fetched
   if (!event) {

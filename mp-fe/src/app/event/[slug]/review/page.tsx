@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQueries, useMutation } from "@tanstack/react-query";
 import instance from "@/utils/axiosinstance"; // Axios instance
 import { toast } from "react-toastify";
 import { Formik, Form, Field, ErrorMessage } from "formik";
@@ -22,18 +22,41 @@ const ReviewForm: React.FC = () => {
   const router = useRouter();
   const pathname = usePathname();
   const eventId = Number(pathname.split("/")[2]); // Extract eventId from the URL
-
-  // Fetch event details using useQuery
-  const { data: eventDetails, error, isLoading } = useQuery({
-    queryKey: ["eventDetails", eventId],
-    queryFn: async () => {
-      const res = await instance.get(`/event/${eventId}`);
-      return res.data.data;
-    },
-    enabled: !!eventId,
+  
+  // Use `useQueries` to fetch event details and user reviews simultaneously
+  const [eventDetailsQuery, userReviewsQuery] = useQueries({
+    queries: [
+      {
+        queryKey: ["eventDetails", eventId],
+        queryFn: async () => {
+          const res = await instance.get(`/event/${eventId}`);
+          return res.data.data;
+        },
+        enabled: !!eventId,
+      },
+      {
+        queryKey: ["userReviews"],
+        queryFn: async () => {
+          const res = await instance.get("/review/"); // Endpoint to fetch user reviews
+          return res.data.data;
+        },
+      },
+    ],
   });
 
-  // Mutation for creating a review
+  const eventDetails = eventDetailsQuery.data;
+  const userReviews = userReviewsQuery.data;
+
+  const isEventLoading = eventDetailsQuery.isLoading;
+  const isReviewLoading = userReviewsQuery.isLoading;
+
+  const eventError = eventDetailsQuery.error;
+  const reviewError = userReviewsQuery.error;
+
+  // Check if the user has already reviewed the event
+  const existingReview = userReviews?.find((review: any) => review.eventId === eventId);
+
+  // Mutation for updating or creating a review
   const { mutate: mutateCreateReview } = useMutation({
     mutationFn: async (fd: any) => {
       return await instance.post("/review/create-review", fd);
@@ -49,22 +72,23 @@ const ReviewForm: React.FC = () => {
         position: "top-center",
       });
       console.error(err);
+      router.push("/user/dashboard/event");
     },
   });
 
   return (
     <div className="max-w-xl mx-auto mt-10 p-6 bg-white shadow-lg rounded-lg">
-      {isLoading ? (
-        <div>Loading event details...</div>
-      ) : error ? (
-        <div>Error loading event details. Please try again.</div>
+      {isEventLoading || isReviewLoading ? (
+        <div>Loading...</div>
+      ) : eventError || reviewError ? (
+        <div>Error loading data. Please try again.</div>
       ) : (
         <>
           {/* Event Details */}
           {eventDetails && (
             <div className="mb-6">
               <img
-                src={`http://localhost:4700/api${eventDetails?.url}`}
+                src={`http://localhost:4700/api/${eventDetails?.url}`}
                 alt={eventDetails.name}
                 className="w-full h-48 object-cover rounded-md mb-4"
               />
@@ -82,12 +106,12 @@ const ReviewForm: React.FC = () => {
           )}
 
           {/* Review Form */}
-          <h2 className="text-xl font-bold mb-4">Leave a Review</h2>
+          <h2 className="text-xl font-bold mb-4">{existingReview ? "Edit Your Review" : "Leave a Review"}</h2>
           <Formik
             initialValues={{
-              rating: 0,
-              feedback: "", // Added feedback field
-              comments: "",
+              rating: existingReview?.rating || 0,
+              feedback: existingReview?.feedback || "",
+              comments: existingReview?.comments || "",
             }}
             validationSchema={ReviewSchema}
             onSubmit={(values) => {
