@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 import instance from '@/utils/axiosinstance';
+import ReviewCarousel from '../review/page';
 
 // Function to format date
 function formatDate(dateString: string) {
@@ -25,13 +26,12 @@ function formatDate(dateString: string) {
 
 export default function EventPage() {
   // define router, id, and useState for storing fetched event 
-  const router = useRouter()
   const pathname = usePathname()
   const id = pathname.split('/')[2]
   
   // console.log("from event page",pathname.split('/'))
   // Using `useQueries` to fetch both the specific event by `id` and all events
-  const [eventQuery, allEventsQuery] = useQueries({
+  const [eventQuery, allEventsQuery, reviewsQuery, ticketsQuery] = useQueries({
     queries: [
       {
         queryKey: ['event', id], // Unique key for the single event query
@@ -50,13 +50,30 @@ export default function EventPage() {
           return res.data.data;
         },
       },
+      {
+        queryKey: ['reviews'],
+        queryFn: async () => {
+          const res = await axios.get(`http://localhost:4700/api/review/${id}`); // Adjust API URL
+          return res.data.data; // Assuming data contains the reviews array
+        },
+      },{
+        queryKey: ['tickets'],
+        queryFn: async() => {
+          const res = await axios.get(`http://localhost:4700/api/ticket/${id}`)
+          return res.data.data;
+
+        }
+      }
     ],
   });
   
+  // derive data that are fetched from useQueries here
   let event = eventQuery.data
-  
+  console.log(event)
   let allEvents = allEventsQuery.data
-  // console.log("all events", allEvents)
+  let reviews = reviewsQuery.data
+  let tickets = ticketsQuery.data
+  console.log("tickets", tickets)
   
   // Filter out the current event from all events
   const otherEvents = allEvents?.filter((e: any) => e.id !== Number(id));
@@ -64,13 +81,23 @@ export default function EventPage() {
   // Create a ref for the Tickets Section
   const ticketsSectionRef = useRef<HTMLDivElement | null>(null);
   
-  // State for ticket count
-  const [regularTicketCount, setRegularTicketCount] = useState(0);
-  
-  // Functions to handle increment and decrement
-  const incrementTicket = () => setRegularTicketCount(prevCount => prevCount + 1);
-  const decrementTicket = () => setRegularTicketCount(prevCount => Math.max(0, prevCount - 1));
-  
+  // Initialize ticketCounts safely
+  const [ticketCounts, setTicketCounts] = useState<number[]>(
+    tickets ? tickets.map(() => 0) : [] // Fallback to an empty array if tickets is undefined
+  );
+
+  const incrementTicket = (index: number) => {
+    setTicketCounts((prevCounts) =>
+      prevCounts.map((count, i) => (i === index ? count + 1 : count))
+    );
+  };
+
+  const decrementTicket = (index: number) => {
+    setTicketCounts((prevCounts) =>
+      prevCounts.map((count, i) => (i === index && count > 0 ? count - 1 : count))
+    );
+  };
+
   // Scroll to the Tickets Section when button is clicked
   const scrollToTickets = () => {
     if (ticketsSectionRef.current) {
@@ -115,15 +142,20 @@ export default function EventPage() {
 
   // handleCheckout function
   const handleCheckout = async() => {
-    if (regularTicketCount > 0) {    
+    if ((ticketCounts[0] || ticketCounts[1]) > 0) {    
       const midtransClientKey = process.env.NEXT_PUBLIC_MIDTRANS_CLIENT_KEY
+      const regularTicketQty = ticketCounts[0]
+      const vipTicketQty = ticketCounts[1]
+      const regularTicketPrice = tickets[0].price
+      const vipTicketPrice = tickets[1].price      
+      const totalPrice = (regularTicketQty * regularTicketPrice) + (vipTicketQty * vipTicketPrice)      
 
       try {
         await loadSnapScript(midtransClientKey as string)
 
         const transactionData = {
           eventId: id,
-          totalPrice: Math.round(event.price * regularTicketCount)
+          totalPrice: event.price > 0 ? Math.round(totalPrice) : Math.round(1) 
         }
 
         // create the transaction and retrieve the transaction token and redirect URL
@@ -140,7 +172,12 @@ export default function EventPage() {
               // Post paid transaction to the backend
               await instance.post("/transaction/update-transaction-status", {
                 orderId: result.order_id,
+                regularTicketQty: regularTicketQty,
+                regularTicketPrice: regularTicketPrice,
+                vipTicketQty: vipTicketQty,
+                vipTicketPrice: vipTicketPrice,
                 status: "paid",
+                eventId: id
               });
   
               console.log("Payment success:", result);
@@ -188,51 +225,12 @@ export default function EventPage() {
     } 
   }
 
-  // Define the mutation
-  // const { mutate: mutateCreateTransaction } = useMutation({
-  //   mutationFn: async (data: { eventId: string; totalPrice: number }) => {
-  //     // Send request to create transaction
-  //     return await instance.post('/transaction/create-transaction', data);
-  //   },
-
-  //   onSuccess: (res) => {
-  //     console.log(res.data)
-  //     const transactionToken = res.data.token; // Extract transaction token from response
-  //     const redirectUrl = res.data.redirect_url; // Extract redirect URL from response
-
-  //     console.log(transactionToken)
-  //     console.log(redirectUrl)
-
-  //     // Handle payment using Snap popup or redirect URL
-  //     if (window.snap) {
-  //       window.snap.pay(transactionToken, {
-  //         onSuccess: function (result) {
-  //           alert("Payment successful!");
-  //           console.log("Payment success:", result);
-  //         },
-  //         onPending: function (result) {
-  //           alert("Waiting for your payment!");
-  //           console.log("Payment pending:", result);
-  //         },
-  //         onError: function (result) {
-  //           alert("Payment failed!");
-  //           console.error("Payment failed:", result);
-  //         },
-  //         onClose: function () {
-  //           alert("You closed the popup without finishing the payment.");
-  //         },
-  //       });
-  //     } else {
-  //       console.warn("Snap is not available. Redirecting to the payment page...");
-  //       // window.location.href = redirectUrl 
-  //     }
-  //   },
-  
-  //   onError: (error) => {
-  //     console.error("Transaction creation failed:", error);
-  //     toast.error("Transaction creation failed", { position: "top-center" });
-  //   },
-  // });
+  // Update ticketCounts dynamically when tickets are loaded
+  useEffect(() => {
+    if (tickets?.length && ticketCounts.length === 0) {
+      setTicketCounts(Array(tickets.length).fill(0)); // Initialize with zeros once tickets are available
+    }
+  }, [tickets]);
 
   // if there are no event being fetched
   if (!event) {
@@ -285,12 +283,6 @@ export default function EventPage() {
             <p className="mt-4 text-gray-600">
               {event.description} 
             </p>
-            {/* <ul className="list-disc list-inside mt-4 space-y-2">
-              <li className="text-gray-600">Noraebang</li>
-              <li className="text-gray-600">K-Pop Dance</li>
-              <li className="text-gray-600">Photobox</li>
-              <li className="text-gray-600">Traditional Korean Games</li>
-            </ul> */}
           </section>
           
           {/* About Event Section */}
@@ -299,37 +291,62 @@ export default function EventPage() {
             {event.detailedDescription}
           </section>
 
-          {/* Tickets Section */} 
+          {/* Tickets Section */}
           <section ref={ticketsSectionRef} className="bg-white rounded-lg shadow-lg p-8 mt-8">
             <h2 className="text-2xl font-semibold text-gray-800">Tickets</h2>
             <div className="mt-4 space-y-4">
-              <div className="flex justify-between items-center border border-gray-300 rounded-lg p-4">
-                <div>
-                  <h3 className="text-gray-800 font-semibold">Early Bird</h3>
-                  <p className="text-gray-600">FREE</p>
+              {tickets.map((ticket: any, index: number) => (
+                <div
+                  key={index}
+                  className="flex justify-between items-center border border-gray-300 rounded-lg p-4"
+                >
+                  <div className="flex flex-col">
+                    {/* Ticket Name */}
+                    <h3 className="text-gray-800 font-semibold">
+                      {ticket.name.replace("Seed", "").trim()} {/* Remove 'Seed' */}
+                    </h3>
+                    {/* Ticket Price */}
+                    <p className="text-gray-600">IDR {ticket.price.toLocaleString('id-ID')}</p> {/* Format price in IDR */}
+                  </div>
+                  <div className="flex flex-col items-center">
+                    {/* Ticket Availability */}
+                    <h3 className="text-gray-500">Available: {ticket.available}</h3>
+                  </div>
+                  {new Date() < new Date(ticket.startDate) ? (
+                    // Sales Start Message
+                    <div className="text-gray-500 font-medium">
+                      Sales start on{" "}
+                      {new Date(ticket.startDate).toLocaleDateString("en-US", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </div>
+                  ) : ticket.available > 0 ? (
+                    <div className="flex items-center space-x-2">
+                      {/* Decrement Button */}
+                      <button
+                        onClick={() => decrementTicket(index)} // Adjust to target specific ticket
+                        className="border border-gray-300 text-gray-500 p-1 rounded hover:border-[#f05537] hover:text-gray-500"
+                      >
+                        -
+                      </button>
+                      {/* Ticket Count */}
+                      <span>{ticketCounts[index] || 0}</span> {/* Display specific ticket count */}
+                      {/* Increment Button */}
+                      <button
+                        onClick={() => incrementTicket(index)} // Adjust to target specific ticket
+                        className="border border-gray-300 text-blue-500 p-1 rounded hover:border-[#f05537] hover:text-gray-500"
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    // Sold Out Message
+                    <div className="text-gray-500 font-medium">Sold Out!</div>
+                  )}
                 </div>
-                <span className="text-gray-500">Sales ended</span>
-              </div>
-              <div className="flex justify-between items-center border border-gray-300 rounded-lg p-4">
-                <div>
-                  <h3 className="text-gray-800 font-semibold">Regular</h3>
-                  <p className="text-gray-600">FREE</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <button onClick={decrementTicket} className="border border-gray-300 text-gray-500 p-1 rounded hover:border-[#f05537] hover:text-gray-500">-</button>
-                  <span>{regularTicketCount}</span>
-                  <button onClick={incrementTicket} className="border border-gray-300 text-blue-500 p-1 rounded hover:border-[#f05537] hover:text-gray-500">+</button>
-                </div>
-                <span className="text-blue-500 cursor-pointer">Read more</span>
-              </div>
-              <div className="flex justify-between items-center border border-gray-300 rounded-lg p-4">
-                <div>
-                  <h3 className="text-gray-800 font-semibold">On The Spot</h3>
-                  <p className="text-gray-600">FREE</p>
-                </div>
-                <span className="text-gray-500">Sales start on Nov 01, 2024</span>
-                <span className="text-blue-500 cursor-pointer">Read more</span>
-              </div>
+              ))}
             </div>
           </section>
 
@@ -347,22 +364,8 @@ export default function EventPage() {
             </div>
           </section>
 
-          {/* Organized By Section */}
-          <section className="bg-white rounded-lg shadow-lg p-8 mt-8">
-            <h2 className="text-2xl font-semibold text-gray-800">Organized by</h2>
-            <div className="flex items-center justify-between mt-4 p-4 bg-gray-50 rounded-lg shadow-inner">
-              <div>
-                <p className="text-gray-800 font-semibold">KT&G SangSang Univ. Indonesia</p>
-                <p className="text-gray-500">449 followers</p>
-                <p className="text-gray-500">5.6k attendees hosted</p>
-              </div>
-              <div className="flex space-x-4">
-                <button className="text-blue-500 font-semibold">Contact</button>
-                <button className="bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-blue-600">Follow</button>
-              </div>
-            </div>
-            <p className="text-blue-500 mt-4 cursor-pointer">Report this event</p>
-          </section>
+          {/* Review Carousel Section */}
+          <ReviewCarousel reviews={reviews}/>
         </div>
         
         {/* Right side (Persistent Select Tickets Button) - 1/4 width */}
@@ -374,7 +377,7 @@ export default function EventPage() {
                 className="bg-orange-500 text-white font-semibold py-3 px-6 rounded-lg hover:bg-orange-600 w-full"
                 onClick={() => {handleCheckout()}}
               >
-                {regularTicketCount > 0 ? 'Checkout' : 'Select tickets'}
+                {(ticketCounts[0] || ticketCounts[1]) > 0 ? 'Checkout' : 'Select tickets'}
               </button>
             </div>
           </div>
@@ -382,7 +385,6 @@ export default function EventPage() {
       </div>
 
       <OtherEventsSection otherEvents={otherEvents}/>
-
     </div>
   );
 }

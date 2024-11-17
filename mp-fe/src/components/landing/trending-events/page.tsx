@@ -12,7 +12,26 @@ function formatDate(dateString: any) {
   return format(new Date(dateString), 'MMMM dd, yyyy');
 }
 
-function EventCard({ id, url, name, startDate, endDate, location, isPaid, category }: any) {
+function EventCard({ id, url, name, startDate, endDate, location, category }: any) {
+  const { data: tickets, isLoading, isError } = useQuery({
+    queryKey: ['eventTickets'],
+    queryFn: async () => {
+      const res = await axios.get(`http://localhost:4700/api/ticket/${id}`);
+      return res.data.data;
+    },
+  });
+
+  // Determine if the event is Paid or Free
+  const isPaid = tickets ? tickets.some((ticket: any) => ticket.price > 0) : false;
+
+  if (isLoading) {
+    return <div className="text-center text-gray-500">Loading...</div>;
+  }
+
+  if (isError) {
+    return <div className="text-center text-red-500">Failed to load ticket data.</div>;
+  }
+  
   return (
     <div className="relative w-64 h-96 bg-white rounded-lg shadow-md overflow-hidden transform transition duration-300 hover:scale-105 hover:border-4 hover:border-[#f05537]">
       {/* Large Number Indicator */}
